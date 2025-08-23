@@ -154,7 +154,7 @@ export class AuthService {
     async refreshToken(refreshToken: string): Promise<RefreshTokenResponseDto> {
         try {
             // Verify the refresh token is valid
-            const refreshTokenSecret: string = process.env.JWT_SECRET!;
+            const refreshTokenSecret: string = process.env.JWT_REFRESH_SECRET!;
             const decoded: jwt.JwtPayload = jwt.verify(refreshToken, refreshTokenSecret) as jwt.JwtPayload;
             
             // Find user with the refresh token
@@ -190,7 +190,7 @@ export class AuthService {
 
     verifyAccessToken(token: string): { userId: string; email: string } {
         try {
-            const accessTokenSecret: string = process.env.JWT_SECRET!;
+            const accessTokenSecret: string = process.env.JWT_ACCESS_SECRET!;
             return jwt.verify(token, accessTokenSecret) as { userId: string; email: string };
         } catch (error) {
             throw new Error('Invalid access token');

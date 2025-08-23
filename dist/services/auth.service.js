@@ -132,7 +132,7 @@ let AuthService = class AuthService {
     async refreshToken(refreshToken) {
         try {
             // Verify the refresh token is valid
-            const refreshTokenSecret = process.env.JWT_SECRET;
+            const refreshTokenSecret = process.env.JWT_REFRESH_SECRET;
             const decoded = jsonwebtoken_1.default.verify(refreshToken, refreshTokenSecret);
             // Find user with the refresh token
             const user = await this.userRepository.findOne({
@@ -162,7 +162,7 @@ let AuthService = class AuthService {
     }
     verifyAccessToken(token) {
         try {
-            const accessTokenSecret = process.env.JWT_SECRET;
+            const accessTokenSecret = process.env.JWT_ACCESS_SECRET;
             return jsonwebtoken_1.default.verify(token, accessTokenSecret);
         }
         catch (error) {

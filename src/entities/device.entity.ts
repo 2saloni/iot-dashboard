@@ -9,7 +9,7 @@ export class Device {
     id!: string;
 
     @Column({nullable: false})
-    deviceId!: number;
+    deviceId!: string;
 
     @Column({ nullable: false })
     name!: string;
@@ -22,14 +22,6 @@ export class Device {
 
     @Column('json', { nullable: true })
     metadata?: any;
-
-    // @ManyToMany(() => User, user => user.devices)
-    // @JoinTable({
-    //     name: 'user_devices',
-    //     joinColumn: { name: 'deviceId', referencedColumnName: 'id' },
-    //     inverseJoinColumn: { name: 'userId', referencedColumnName: 'id' }
-    // })
-    // users!: User[];
 
     @OneToMany(() => Zone, zone => zone.device)
     zones!: Zone[];

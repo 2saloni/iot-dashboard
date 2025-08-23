@@ -22,7 +22,7 @@ __decorate([
 ], Device.prototype, "id", void 0);
 __decorate([
     (0, typeorm_1.Column)({ nullable: false }),
-    __metadata("design:type", Number)
+    __metadata("design:type", String)
 ], Device.prototype, "deviceId", void 0);
 __decorate([
     (0, typeorm_1.Column)({ nullable: false }),

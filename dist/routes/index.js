@@ -5,9 +5,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_routes_1 = __importDefault(require("./auth.routes"));
-// import mqttRoutes from './mqtt.routes';
+const mqtt_routes_1 = __importDefault(require("./mqtt.routes"));
+const device_routes_1 = __importDefault(require("./device.routes"));
 const router = (0, express_1.Router)();
 // Mount route modules
 router.use('/auth', auth_routes_1.default);
-// router.use('/mqtt', mqttRoutes);
+router.use('/mqtt', mqtt_routes_1.default);
+router.use('/devices', device_routes_1.default);
 exports.default = router;

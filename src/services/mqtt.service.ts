@@ -129,7 +129,7 @@ export class MqttService {
     try {
       // Find the device
       const device = await this.deviceRepository.findOne({
-        where: { deviceId },
+        where: { deviceId: deviceId.toString() },
         relations: ['zones'],
       });
       

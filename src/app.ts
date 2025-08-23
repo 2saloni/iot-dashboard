@@ -6,7 +6,7 @@ import routes from './routes';
 import cors from 'cors';
 
 // Load environment variables
-// dotenv.config();
+dotenv.config();
 
 class App {
     public app: Application;
