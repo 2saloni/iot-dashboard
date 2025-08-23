@@ -1,142 +1,153 @@
-"use strict";
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ZoneService = void 0;
-const zone_entity_1 = require("../entities/zone.entity");
-const database_config_1 = require("../config/database.config");
-const singleton_decorator_1 = require("../decorators/singleton.decorator");
-let ZoneService = class ZoneService {
+import { Repository, FindOptionsWhere, FindManyOptions } from 'typeorm';
+import { Zone } from '../entities/zone.entity';
+import { AppDataSource } from '../config/database.config';
+import { Singleton } from '../decorators/singleton.decorator';
+import { CreateZoneDto, UpdateZoneDto } from '../dto/request/zone.request';
+
+export interface ZoneQueryOptions {
+    name?: string;
+    deviceId?: string;
+}
+
+@Singleton
+export class ZoneService {
+    private readonly zoneRepository: Repository<Zone>;
+
     constructor() {
-        this.zoneRepository = database_config_1.AppDataSource.getRepository(zone_entity_1.Zone);
+        this.zoneRepository = AppDataSource.getRepository(Zone);
     }
+
     /**
      * Create a new zone
      */
-    async createZone(createZoneDto) {
+    async createZone(createZoneDto: CreateZoneDto): Promise<Zone> {
         try {
             // Check if zone with same name already exists for this device
-            const existingZone = await this.zoneRepository.findOne({
-                where: {
+            const existingZone: Zone | null = await this.zoneRepository.findOne({
+                where: { 
                     name: createZoneDto.name,
                     deviceId: createZoneDto.deviceId
                 }
             });
+
             if (existingZone) {
                 throw new Error(`Zone with name '${createZoneDto.name}' already exists for this device`);
             }
-            const zone = this.zoneRepository.create(createZoneDto);
-            const savedZone = await this.zoneRepository.save(zone);
+
+            const zone: Zone = this.zoneRepository.create(createZoneDto);
+
+            const savedZone: Zone = await this.zoneRepository.save(zone);
             return savedZone;
-        }
-        catch (error) {
+        } catch (error) {
             throw new Error(`Failed to create zone: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
+
     /**
      * Get zone by ID
      */
-    async getZoneById(id) {
+    async getZoneById(id: string): Promise<Zone> {
         try {
-            const findOptions = {
+            const findOptions: FindManyOptions<Zone> = {
                 where: { id }
             };
-            const zone = await this.zoneRepository.findOne(findOptions);
+
+            const zone: Zone | null = await this.zoneRepository.findOne(findOptions);
+
             if (!zone) {
                 throw new Error(`Zone with ID ${id} not found`);
             }
+
             return zone;
-        }
-        catch (error) {
+        } catch (error) {
             throw new Error(`Failed to get zone: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
+
     /**
      * Get all zones with optional filtering
      */
-    async getAllZones(queryOptions = {}) {
+    async getAllZones(queryOptions: ZoneQueryOptions = {}): Promise<Zone[]> {
         try {
-            const whereConditions = {};
+            const whereConditions: FindOptionsWhere<Zone> = {};
+            
             if (queryOptions.name) {
                 whereConditions.name = queryOptions.name;
             }
+            
             if (queryOptions.deviceId) {
                 whereConditions.deviceId = queryOptions.deviceId;
             }
-            const findOptions = {
+
+            const findOptions: FindManyOptions<Zone> = {
                 where: whereConditions,
                 order: { createdAt: 'DESC' }
             };
-            const zones = await this.zoneRepository.find(findOptions);
+
+            const zones: Zone[] = await this.zoneRepository.find(findOptions);
             return zones;
-        }
-        catch (error) {
+        } catch (error) {
             throw new Error(`Failed to get zones: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
+
     /**
      * Update zone by ID
      */
-    async updateZone(id, updateZoneDto) {
+    async updateZone(id: string, updateZoneDto: UpdateZoneDto): Promise<Zone> {
         try {
             // Check if zone exists
-            const existingZone = await this.zoneRepository.findOne({
+            const existingZone: Zone | null = await this.zoneRepository.findOne({
                 where: { id }
             });
+
             if (!existingZone) {
                 throw new Error(`Zone with ID ${id} not found`);
             }
+
             // Check if the name is being changed and if the new name already exists for this device
             if (updateZoneDto.name && updateZoneDto.name !== existingZone.name) {
                 const deviceId = updateZoneDto.deviceId || existingZone.deviceId;
                 const nameExistsForDevice = await this.zoneRepository.findOne({
-                    where: {
+                    where: { 
                         name: updateZoneDto.name,
                         deviceId: deviceId
                     }
                 });
+
                 // If a zone with the same name exists and it's not the current zone, throw an error
                 if (nameExistsForDevice && nameExistsForDevice.id !== id) {
                     throw new Error(`Zone with name '${updateZoneDto.name}' already exists for this device`);
                 }
             }
+
             // Merge updates into the entity
             Object.assign(existingZone, updateZoneDto);
+
             // Save updated zone
             return await this.zoneRepository.save(existingZone);
-        }
-        catch (error) {
+        } catch (error) {
             throw new Error(`Failed to update zone: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
+
     /**
      * Delete zone by ID (soft delete)
      */
-    async deleteZone(id) {
+    async deleteZone(id: string): Promise<void> {
         try {
-            const zone = await this.zoneRepository.findOne({
+            const zone: Zone | null = await this.zoneRepository.findOne({
                 where: { id }
             });
+
             if (!zone) {
                 throw new Error(`Zone with ID ${id} not found`);
             }
+
             // Soft delete the zone
             await this.zoneRepository.softDelete(id);
-        }
-        catch (error) {
+        } catch (error) {
             throw new Error(`Failed to delete zone: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
-};
-exports.ZoneService = ZoneService;
-exports.ZoneService = ZoneService = __decorate([
-    singleton_decorator_1.Singleton,
-    __metadata("design:paramtypes", [])
-], ZoneService);
+}
