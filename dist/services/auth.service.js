@@ -23,8 +23,8 @@ let AuthService = class AuthService {
         this.userRepository = database_config_1.AppDataSource.getRepository(user_entity_1.User);
     }
     generateTokens(userId, email) {
-        const accessTokenSecret = process.env.JWT_ACCESS_SECRET || 'your-access-token-secret';
-        const refreshTokenSecret = process.env.JWT_REFRESH_SECRET || 'your-refresh-token-secret';
+        const accessTokenSecret = process.env.JWT_ACCESS_SECRET;
+        const refreshTokenSecret = process.env.JWT_REFRESH_SECRET;
         const accessToken = jsonwebtoken_1.default.sign({ userId, email }, accessTokenSecret, { expiresIn: process.env.JWT_ACCESS_EXPIRY || '15m' });
         const refreshToken = jsonwebtoken_1.default.sign({ userId, email }, refreshTokenSecret, { expiresIn: process.env.JWT_REFRESH_EXPIRY || '7d' });
         return { accessToken, refreshToken };
@@ -107,69 +107,6 @@ let AuthService = class AuthService {
             throw new Error(`Login failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
-    // async refreshToken(token: string): Promise<RefreshTokenResponseDto> {
-    //     try {
-    //         const refreshTokenSecret = process.env.JWT_REFRESH_SECRET || 'your-refresh-token-secret';
-    //         let decoded: { userId: string; email: string };
-    //         let user: User | null = null;
-    //         try {
-    //             // Try to verify the refresh token
-    //             decoded = jwt.verify(token, refreshTokenSecret) as { userId: string; email: string };
-    //             // Find user and verify refresh token matches stored token
-    //             user = await this.userRepository.findOne({
-    //                 where: { id: decoded.userId },
-    //                 select: ['id', 'email', 'refreshToken']
-    //             });
-    //             // If token is valid and matches stored token, generate new tokens
-    //             if (user && user.refreshToken === token) {
-    //                 const { accessToken, refreshToken: newRefreshToken } = this.generateTokens(user.id, user.email);
-    //                 // Update refresh token in database
-    //                 await this.userRepository.update(user.id, { refreshToken: newRefreshToken });
-    //                 return {
-    //                     accessToken,
-    //                     refreshToken: newRefreshToken
-    //                 };
-    //             }
-    //         } catch (jwtError) {
-    //             // Token verification failed - token is invalid/expired
-    //             // Continue to generate new refresh token below
-    //         }
-    //         // If we reach here, the token is invalid (expired, malformed, or doesn't match stored token)
-    //         // Try to extract userId from the token payload without verification (for expired tokens)
-    //         let userId: string | null = null;
-    //         try {
-    //             // Decode token without verification to get userId (works for expired tokens)
-    //             const decodedPayload = jwt.decode(token) as { userId?: string; email?: string } | null;
-    //             if (decodedPayload && decodedPayload.userId) {
-    //                 userId = decodedPayload.userId;
-    //             }
-    //         } catch (decodeError) {
-    //             // Token is completely malformed
-    //             throw new Error('Invalid refresh token format');
-    //         }
-    //         if (!userId) {
-    //             throw new Error('Invalid refresh token - unable to extract user information');
-    //         }
-    //         // Find user by userId from the decoded token
-    //         user = await this.userRepository.findOne({
-    //             where: { id: userId },
-    //             select: ['id', 'email', 'refreshToken']
-    //         });
-    //         if (!user) {
-    //             throw new Error('User not found');
-    //         }
-    //         // Generate new tokens for the user
-    //         const { accessToken, refreshToken: newRefreshToken } = this.generateTokens(user.id, user.email);
-    //         // Update refresh token in database
-    //         await this.userRepository.update(user.id, { refreshToken: newRefreshToken });
-    //         return {
-    //             accessToken,
-    //             refreshToken: newRefreshToken
-    //         };
-    //     } catch (error) {
-    //         throw new Error(`Token refresh failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    //     }
-    // }
     async logout(userId) {
         try {
             await this.userRepository.update(userId, { refreshToken: undefined });
@@ -192,9 +129,40 @@ let AuthService = class AuthService {
             throw new Error(`Failed to get user profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
+    async refreshToken(refreshToken) {
+        try {
+            // Verify the refresh token is valid
+            const refreshTokenSecret = process.env.JWT_SECRET;
+            const decoded = jsonwebtoken_1.default.verify(refreshToken, refreshTokenSecret);
+            // Find user with the refresh token
+            const user = await this.userRepository.findOne({
+                where: {
+                    id: decoded.userId,
+                    refreshToken: refreshToken // Ensure the refresh token matches what's stored
+                },
+                select: ['id', 'name', 'email', 'refreshToken']
+            });
+            if (!user) {
+                throw new Error('Invalid refresh token or user not found');
+            }
+            // Generate new tokens
+            const { accessToken, refreshToken: newRefreshToken } = this.generateTokens(user.id, user.email);
+            // Update user with new refresh token
+            await this.userRepository.update(user.id, {
+                refreshToken: newRefreshToken,
+            });
+            return {
+                accessToken,
+                refreshToken: newRefreshToken
+            };
+        }
+        catch (error) {
+            throw new Error(`Refresh token failed: ${error instanceof Error ? error.message : 'Invalid or expired refresh token'}`);
+        }
+    }
     verifyAccessToken(token) {
         try {
-            const accessTokenSecret = process.env.JWT_ACCESS_SECRET || 'your-access-token-secret';
+            const accessTokenSecret = process.env.JWT_SECRET;
             return jsonwebtoken_1.default.verify(token, accessTokenSecret);
         }
         catch (error) {

@@ -83,42 +83,6 @@ class AuthController {
             }
         };
         /**
-         * Refresh access token
-         * POST /auth/refresh-token
-         */
-        // refreshToken = async (req: Request, res: Response): Promise<void> => {
-        //     try {
-        //         // Transform and validate request body
-        //         const refreshTokenDto = plainToClass(RefreshTokenDto, req.body);
-        //         const errors = await validate(refreshTokenDto);
-        //         if (errors.length > 0) {
-        //             const validationErrors = errors.map(error => ({
-        //                 field: error.property,
-        //                 errors: Object.values(error.constraints || {})
-        //             }));
-        //             res.status(400).json({
-        //                 success: false,
-        //                 message: 'Validation failed',
-        //                 errors: validationErrors
-        //             });
-        //             return;
-        //         }
-        //         // Refresh token
-        //         const result = await this.authService.refreshToken(refreshTokenDto.refreshToken);
-        //         res.status(200).json({
-        //             success: true,
-        //             message: 'Token refreshed successfully',
-        //             data: result
-        //         });
-        //     } catch (error) {
-        //         res.status(401).json({
-        //             success: false,
-        //             message: error instanceof Error ? error.message : 'Token refresh failed',
-        //             error: error instanceof Error ? error.message : 'Unknown error'
-        //         });
-        //     }
-        // };
-        /**
          * Logout user
          * POST /auth/logout
          * Requires authentication
@@ -174,6 +138,43 @@ class AuthController {
                     success: false,
                     message: error instanceof Error ? error.message : 'Failed to get profile',
                     error: error instanceof Error ? error.message : 'Unknown error'
+                });
+            }
+        };
+        /**
+         * Refresh access token using refresh token for auto-login
+         * POST /auth/refresh
+         */
+        this.refreshToken = async (req, res) => {
+            try {
+                // Transform and validate request body
+                const refreshTokenDto = (0, class_transformer_1.plainToClass)(auth_request_1.RefreshTokenDto, req.body);
+                const errors = await (0, class_validator_1.validate)(refreshTokenDto);
+                if (errors.length > 0) {
+                    const validationErrors = errors.map(error => ({
+                        field: error.property,
+                        errors: Object.values(error.constraints || {})
+                    }));
+                    res.status(400).json({
+                        success: false,
+                        message: 'Validation failed',
+                        errors: validationErrors
+                    });
+                    return;
+                }
+                // Refresh token
+                const result = await this.authService.refreshToken(refreshTokenDto.refreshToken);
+                res.status(200).json({
+                    success: true,
+                    message: 'Token refreshed successfully',
+                    data: result
+                });
+            }
+            catch (error) {
+                res.status(401).json({
+                    success: false,
+                    message: error instanceof Error ? error.message : 'Token refresh failed',
+                    error: error instanceof Error ? error.message : 'Invalid or expired refresh token'
                 });
             }
         };

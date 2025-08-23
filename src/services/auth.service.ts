@@ -16,8 +16,8 @@ export class AuthService {
     }
 
     private generateTokens(userId: string, email: string): { accessToken: string; refreshToken: string } {
-        const accessTokenSecret = process.env.JWT_ACCESS_SECRET || 'your-access-token-secret';
-        const refreshTokenSecret = process.env.JWT_REFRESH_SECRET || 'your-refresh-token-secret';
+        const accessTokenSecret = process.env.JWT_ACCESS_SECRET!;
+        const refreshTokenSecret = process.env.JWT_REFRESH_SECRET!;
         
         const accessToken = jwt.sign(
             { userId, email },
@@ -151,9 +151,46 @@ export class AuthService {
         }
     }
 
+    async refreshToken(refreshToken: string): Promise<RefreshTokenResponseDto> {
+        try {
+            // Verify the refresh token is valid
+            const refreshTokenSecret: string = process.env.JWT_SECRET!;
+            const decoded: jwt.JwtPayload = jwt.verify(refreshToken, refreshTokenSecret) as jwt.JwtPayload;
+            
+            // Find user with the refresh token
+            const user: User | null = await this.userRepository.findOne({
+                where: { 
+                    id: decoded.userId,
+                    refreshToken: refreshToken // Ensure the refresh token matches what's stored
+                },
+                select: ['id', 'name', 'email', 'refreshToken']
+            });
+            
+            if (!user) {
+                throw new Error('Invalid refresh token or user not found');
+            }
+            
+            // Generate new tokens
+            const { accessToken, refreshToken: newRefreshToken }: RefreshTokenResponseDto = this.generateTokens(user.id, user.email);
+            
+            // Update user with new refresh token
+            await this.userRepository.update(user.id, { 
+                refreshToken: newRefreshToken, 
+            });
+            
+            return {
+                accessToken,
+                refreshToken: newRefreshToken
+            };
+            
+        } catch (error) {
+            throw new Error(`Refresh token failed: ${error instanceof Error ? error.message : 'Invalid or expired refresh token'}`);
+        }
+    }
+
     verifyAccessToken(token: string): { userId: string; email: string } {
         try {
-            const accessTokenSecret = process.env.JWT_ACCESS_SECRET || 'your-access-token-secret';
+            const accessTokenSecret: string = process.env.JWT_SECRET!;
             return jwt.verify(token, accessTokenSecret) as { userId: string; email: string };
         } catch (error) {
             throw new Error('Invalid access token');

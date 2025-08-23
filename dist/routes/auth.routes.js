@@ -8,7 +8,7 @@ const authController = new auth_controller_1.AuthController();
 // Public routes (no authentication required)
 router.post('/register', authController.register);
 router.post('/login', authController.login);
-// router.post('/refresh-token', authController.refreshToken);
+router.post('/refresh-token', authController.refreshToken);
 // Protected routes (authentication required)
 router.post('/logout', auth_middleware_1.authenticate, authController.logout);
 router.get('/profile', auth_middleware_1.authenticate, authController.getProfile);

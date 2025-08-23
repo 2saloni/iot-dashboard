@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
-import { validate } from 'class-validator';
+import { validate, ValidationError } from 'class-validator';
 import { plainToClass } from 'class-transformer';
 import { AuthService } from '../services/auth.service';
 import { RegisterDto, LoginDto, RefreshTokenDto } from '../dto/request/auth.request';
+import { RefreshTokenResponseDto } from '../dto/response/auth.response';
 
 export class AuthController {
     private authService: AuthService = new AuthService();
@@ -154,5 +155,45 @@ export class AuthController {
         }
     };
 
+    /**
+     * Refresh access token using refresh token for auto-login
+     * POST /auth/refresh
+     */
+    refreshToken = async (req: Request, res: Response): Promise<void> => {
+        try {
+            // Transform and validate request body
+            const refreshTokenDto: RefreshTokenDto = plainToClass(RefreshTokenDto, req.body);
+            const errors: ValidationError[] = await validate(refreshTokenDto);
+
+            if (errors.length > 0) {
+                const validationErrors = errors.map(error => ({
+                    field: error.property,
+                    errors: Object.values(error.constraints || {})
+                }));
+
+                res.status(400).json({
+                    success: false,
+                    message: 'Validation failed',
+                    errors: validationErrors
+                });
+                return;
+            }
+
+            // Refresh token
+            const result: RefreshTokenResponseDto = await this.authService.refreshToken(refreshTokenDto.refreshToken);
+
+            res.status(200).json({
+                success: true,
+                message: 'Token refreshed successfully',
+                data: result
+            });
+        } catch (error) {
+            res.status(401).json({
+                success: false,
+                message: error instanceof Error ? error.message : 'Token refresh failed',
+                error: error instanceof Error ? error.message : 'Invalid or expired refresh token'
+            });
+        }
+    };
 
 }
