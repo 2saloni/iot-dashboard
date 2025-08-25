@@ -2,116 +2,72 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MqttController = void 0;
 const mqtt_service_1 = require("../services/mqtt.service");
+const config_1 = require("../config");
+const device_entity_1 = require("../entities/device.entity");
 class MqttController {
-    constructor(dataSource) {
-        this.dataSource = dataSource;
-        this.mqttService = new mqtt_service_1.MqttService(dataSource);
-        this.deviceRepository = this.dataSource.getRepository;
+    constructor() {
+        this.mqttService = new mqtt_service_1.MqttService();
+        this.deviceRepository = config_1.AppDataSource.getRepository(device_entity_1.Device);
+        // Bind methods to preserve 'this' context
+        this.startMqttService = this.startMqttService.bind(this);
+        this.getDeviceData = this.getDeviceData.bind(this);
     }
     /**
-     * Initialize MQTT connection
+     * Start the MQTT service to connect to broker and subscribe to topics
      */
-    async initMqttConnection(req, res) {
+    async startMqttService(req, res) {
         try {
-            // Get MQTT broker URL from request body or use default
-            const { brokerUrl } = req.body;
-            const connected = await this.mqttService.connect(brokerUrl);
-            if (connected) {
-                return res.status(200).json({
-                    success: true,
-                    message: 'MQTT connection established successfully'
-                });
-            }
-            else {
-                return res.status(500).json({
-                    success: false,
-                    message: 'Failed to connect to MQTT broker'
-                });
-            }
-        }
-        catch (error) {
-            return res.status(500).json({
-                success: false,
-                message: error.message || 'Internal server error'
-            });
-        }
-    }
-    /**
-     * Subscribe to a specific topic
-     */
-    async subscribeTopic(req, res) {
-        try {
-            const { topic } = req.body;
-            if (!topic) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Topic is required'
-                });
-            }
-            const subscribed = this.mqttService.subscribeTopic(topic);
-            if (subscribed) {
-                return res.status(200).json({
-                    success: true,
-                    message: `Subscribed to topic: ${topic}`
-                });
-            }
-            else {
-                return res.status(500).json({
-                    success: false,
-                    message: 'Failed to subscribe to topic'
-                });
-            }
-        }
-        catch (error) {
-            return res.status(500).json({
-                success: false,
-                message: error.message || 'Internal server error'
-            });
-        }
-    }
-    /**
-     * Subscribe to all device topics
-     */
-    async subscribeAllDevices(req, res) {
-        try {
-            await this.mqttService.subscribeToAllDevices();
+            await this.mqttService.mqttData();
             return res.status(200).json({
                 success: true,
-                message: 'Subscribed to all device topics'
+                message: 'MQTT service started and connected to broker'
             });
         }
         catch (error) {
             return res.status(500).json({
                 success: false,
-                message: error.message || 'Internal server error'
+                message: error.message || 'Failed to start MQTT service'
             });
         }
     }
     /**
-     * Publish message to a topic
+     * Get device data from the database
      */
-    async publishMessage(req, res) {
+    async getDeviceData(req, res) {
         try {
-            const { topic, message } = req.body;
-            if (!topic || !message) {
+            const deviceId = req.params.deviceId;
+            const { zoneName } = req.query;
+            if (!deviceId) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Topic and message are required'
+                    message: 'Device ID is required'
                 });
             }
-            const published = this.mqttService.publishMessage(topic, message);
-            if (published) {
+            // Ensure deviceId has leading zeros if needed (5 digits)
+            const deviceIdStr = deviceId.padStart(5, '0');
+            // Find the device
+            const device = await this.deviceRepository.findOne({
+                where: { deviceId: deviceIdStr },
+                relations: ['zones'],
+            });
+            if (!device || !device.metadata) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Device data not found'
+                });
+            }
+            // If zone name is provided, return zone-specific data
+            if (zoneName && device.metadata[zoneName]) {
                 return res.status(200).json({
                     success: true,
-                    message: `Message published to topic: ${topic}`
+                    data: device.metadata[zoneName]
                 });
             }
-            else {
-                return res.status(500).json({
-                    success: false,
-                    message: 'Failed to publish message'
-                });
-            }
+            // Return all device metadata
+            return res.status(200).json({
+                success: true,
+                data: device.metadata
+            });
         }
         catch (error) {
             return res.status(500).json({
