@@ -40,18 +40,17 @@ export class UserService {
      */
     async getUserDevices(userId: string): Promise<Device[]> {
         try {
-            const user = await this.getUserById(userId);
-            
+            const user: User = await this.getUserById(userId);
+           
             if (!user.deviceIds || user.deviceIds.length === 0) {
                 return [];
             }
 
-            const devices = await this.deviceRepository.find({
+            const devices: Device[] = await this.deviceRepository.find({
                 where: {
-                    deviceId: In(user.deviceIds)
+                    id: In(user.deviceIds)
                 }
             });
-
             return devices;
         } catch (error) {
             throw new Error(`Failed to get user devices: ${error instanceof Error ? error.message : 'Unknown error'}`);

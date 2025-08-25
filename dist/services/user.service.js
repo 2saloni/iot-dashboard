@@ -49,7 +49,7 @@ let UserService = class UserService {
             }
             const devices = await this.deviceRepository.find({
                 where: {
-                    deviceId: (0, typeorm_1.In)(user.deviceIds)
+                    id: (0, typeorm_1.In)(user.deviceIds)
                 }
             });
             return devices;

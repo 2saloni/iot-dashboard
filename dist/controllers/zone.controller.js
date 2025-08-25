@@ -60,8 +60,10 @@ let ZoneController = class ZoneController {
         this.getZoneById = async (req, res) => {
             try {
                 const { id } = req.params;
-                const userId = req.params.userId;
-                const zone = await this.zoneService.getZoneById(id, userId);
+                const queryOptions = {
+                    userId: req.query.userId
+                };
+                const zone = await this.zoneService.getZoneById(id, queryOptions);
                 res.status(200).json({
                     success: true,
                     message: 'Zone retrieved successfully',

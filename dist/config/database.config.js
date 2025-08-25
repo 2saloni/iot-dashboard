@@ -23,7 +23,7 @@ exports.AppDataSource = new typeorm_1.DataSource({
     password: process.env.DB_PASS,
     database: process.env.DB_USER,
     synchronize: true,
-    logging: true,
+    logging: false,
     entities: [user_entity_1.User, device_entity_1.Device, zone_entity_1.Zone]
     // migrations: ['src/migrations/**/*.ts'],
     // subscribers: ['src/subscribers/**/*.ts'],

@@ -63,9 +63,11 @@ export class ZoneController {
     getZoneById = async (req: Request, res: Response): Promise<void> => {
         try {
             const { id } = req.params;
-            const userId = req.params.userId;
+            const queryOptions: ZoneQueryOptions = {
+                userId: req.query.userId as string
+            };
 
-            const zone = await this.zoneService.getZoneById(id, userId);
+            const zone = await this.zoneService.getZoneById(id, queryOptions);
 
             res.status(200).json({
                 success: true,

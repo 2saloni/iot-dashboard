@@ -4,6 +4,7 @@ import { AppDataSource } from '../config/database.config';
 import { Singleton } from '../decorators/singleton.decorator';
 import { CreateZoneDto, UpdateZoneDto } from '../dto/request/zone.request';
 import { UserService } from './user.service';
+import { Device } from '../entities/device.entity';
 
 export interface ZoneQueryOptions {
     userId?: string;
@@ -48,31 +49,37 @@ export class ZoneService {
 
     /**
      * Get zone by ID
-     * If userId is provided, verify the zone belongs to one of the user's devices
+     * Only returns the zone if it belongs to the requested user
      */
-    async getZoneById(id: string, userId: string): Promise<Zone> {
+    async getZoneById(id: string, queryOptions: ZoneQueryOptions): Promise<Zone> {
         try {
-            const findOptions: FindManyOptions<Zone> = {
-                where: { id },
+            // Check if userId is provided for authorization
+            if (!queryOptions.userId) {
+                throw new Error(`User ID is required for authorization`);
+            }
+            
+            // First get all devices for the user
+            const userDevices: Device[] = await this.userService.getUserDevices(queryOptions.userId);
+           
+            const deviceIds: string[] = userDevices.map(device => device.id);
+            
+            // If user has no devices, they can't access any zones
+            if (deviceIds.length === 0) {
+                throw new Error(`Not authorized to access any zones`);
+            }
+            
+            // Only fetch zone if it belongs to one of the user's devices
+            const zone: Zone | null = await this.zoneRepository.findOne({
+                where: { 
+                    id,
+                    deviceId: In(deviceIds)
+                },
                 relations: ['device']
-            };
-
-            const zone: Zone | null = await this.zoneRepository.findOne(findOptions);
-
+            });
+            
             if (!zone) {
-                throw new Error(`Zone with ID ${id} not found`);
+                throw new Error(`Zone not found or you are not authorized to access it`);
             }
-
-            // If userId is provided, verify the zone belongs to one of the user's devices
-            if (userId) {
-                const userDevices = await this.userService.getUserDevices(userId);
-                const deviceIds = userDevices.map(device => device.id);
-                
-                if (!deviceIds.includes(zone.deviceId)) {
-                    throw new Error(`Zone with ID ${id} does not belong to any of the user's devices`);
-                }
-            }
-
             return zone;
         } catch (error) {
             throw new Error(`Failed to get zone: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -89,7 +96,7 @@ export class ZoneService {
             
             // If userId is provided, get all devices for that user
             if (queryOptions.userId) {
-                const userDevices = await this.userService.getUserDevices(queryOptions.userId);
+                const userDevices: Device[] = await this.userService.getUserDevices(queryOptions.userId);
                 deviceIds = userDevices.map(device => device.id);
                 
                 // If user has no devices, return empty array
