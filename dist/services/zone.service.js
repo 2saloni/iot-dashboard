@@ -10,12 +10,15 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ZoneService = void 0;
+const typeorm_1 = require("typeorm");
 const zone_entity_1 = require("../entities/zone.entity");
 const database_config_1 = require("../config/database.config");
 const singleton_decorator_1 = require("../decorators/singleton.decorator");
+const user_service_1 = require("./user.service");
 let ZoneService = class ZoneService {
     constructor() {
         this.zoneRepository = database_config_1.AppDataSource.getRepository(zone_entity_1.Zone);
+        this.userService = new user_service_1.UserService();
     }
     /**
      * Create a new zone
@@ -42,15 +45,25 @@ let ZoneService = class ZoneService {
     }
     /**
      * Get zone by ID
+     * If userId is provided, verify the zone belongs to one of the user's devices
      */
-    async getZoneById(id) {
+    async getZoneById(id, userId) {
         try {
             const findOptions = {
-                where: { id }
+                where: { id },
+                relations: ['device']
             };
             const zone = await this.zoneRepository.findOne(findOptions);
             if (!zone) {
                 throw new Error(`Zone with ID ${id} not found`);
+            }
+            // If userId is provided, verify the zone belongs to one of the user's devices
+            if (userId) {
+                const userDevices = await this.userService.getUserDevices(userId);
+                const deviceIds = userDevices.map(device => device.id);
+                if (!deviceIds.includes(zone.deviceId)) {
+                    throw new Error(`Zone with ID ${id} does not belong to any of the user's devices`);
+                }
             }
             return zone;
         }
@@ -60,20 +73,30 @@ let ZoneService = class ZoneService {
     }
     /**
      * Get all zones with optional filtering
+     * If userId is provided, only return zones for devices belonging to that user
      */
     async getAllZones(queryOptions = {}) {
         try {
-            const whereConditions = {};
-            if (queryOptions.name) {
-                whereConditions.name = queryOptions.name;
-            }
-            if (queryOptions.deviceId) {
-                whereConditions.deviceId = queryOptions.deviceId;
+            let deviceIds = [];
+            // If userId is provided, get all devices for that user
+            if (queryOptions.userId) {
+                const userDevices = await this.userService.getUserDevices(queryOptions.userId);
+                deviceIds = userDevices.map(device => device.id);
+                // If user has no devices, return empty array
+                if (deviceIds.length === 0) {
+                    return [];
+                }
             }
             const findOptions = {
-                where: whereConditions,
-                order: { createdAt: 'DESC' }
+                order: { createdAt: 'DESC' },
+                relations: ['device']
             };
+            // If we have device IDs from the user, filter by them
+            if (deviceIds.length > 0) {
+                findOptions.where = {
+                    deviceId: (0, typeorm_1.In)(deviceIds)
+                };
+            }
             const zones = await this.zoneRepository.find(findOptions);
             return zones;
         }
